@@ -23,8 +23,9 @@ const FONT = "Segoe UI";
 const W = 10, H = 5.625, M = 0.3;
 const SECTIONS = ["Background", "Analysis", "Solution", "Implementation", "Projection"];
 
-// Rich text: **bold**, ^accent^, ~grey~ (for "est."), [n] footnote markers (superscript).
+// Rich text: **bold**, ^accent^, ¤grey¤, [n] footnote markers (superscript). Every standalone "est." is greyed automatically.
 function rich(str, base = {}) {
+  str = String(str).replace(/¤est\.¤/g, "est.").replace(/\best\./g, "¤est.¤");
   const runs = [];
   let bold = false, acc = false, grey = false, buf = "";
   const push = () => {
@@ -41,7 +42,7 @@ function rich(str, base = {}) {
     const c = str[i];
     if (c === "*" && str[i + 1] === "*") { push(); bold = !bold; i++; continue; }
     if (c === "^") { push(); acc = !acc; continue; }
-    if (c === "~") { push(); grey = !grey; continue; }
+    if (c === "¤") { push(); grey = !grey; continue; }
     if (c === "\n") { push(); runs.push({ text: "", options: { breakLine: true } }); continue; }
     if (c === "[") {
       const m = str.slice(i).match(/^\[(\d+(?:[,–-]\s?\d+)*)\]/);
@@ -151,3 +152,77 @@ async function chrome(slide, pres, { label, title, section, page, source, dark =
 }
 
 module.exports = { P, PILLAR, FONT, W, H, M, SECTIONS, rich, text, card, gradient, badge, zone, wordmark, pill, chrome, shadow };
+
+// ---------- additional helpers (tables, banners, charts, appendix chrome) ----------
+// Table with a coloured header row. rows[0] is the header. Cells accept rich markup.
+function table(slide, x, y, w, rows, o = {}) {
+  const fs = o.fontSize || 6.5;
+  const head = o.headFill || P.dark;
+  const data = rows.map((r, ri) => r.map((c, ci) => {
+    const isHead = ri === 0 && o.header !== false;
+    const base = { fontFace: FONT, fontSize: isHead ? fs + 0.3 : fs, color: isHead ? P.paper : P.ink, bold: isHead || (o.firstColBold && ci === 0) };
+    const fill = isHead ? head : (o.fills && o.fills[ri] && o.fills[ri][ci]) || (o.zebra && ri % 2 === 0 ? P.light : P.paper);
+    return { text: rich(String(c), base), options: { fill: { color: fill }, valign: "middle", align: (o.align && o.align[ci]) || "left", margin: [2, 3, 2, 3] } };
+  }));
+  slide.addTable(data, { x, y, w, colW: o.colW, rowH: o.rowH, border: { type: "solid", pt: 0.5, color: P.line }, fontFace: FONT, autoPage: false });
+}
+
+// Gradient banner with white bold text
+async function banner(slide, x, y, w, h, str, o = {}) {
+  await gradient(slide, x, y, w, h, o.from || P.dark, o.to || P.ink, { radius: o.radius ?? 0.05, name: "banner" });
+  text(slide, str, { x: x + 0.1, y, w: w - 0.2, h, fontSize: o.fontSize || 8.5, bold: true, color: P.paper, align: o.align || "center", valign: "middle", markerColor: P.line });
+}
+
+// Chevron process header
+function chevron(slide, pres, x, y, w, h, str, fill = P.dark, o = {}) {
+  slide.addShape(o.first ? pres.shapes.PENTAGON : pres.shapes.CHEVRON, { x, y, w, h, fill: { color: fill }, line: { type: "none" }, objectName: "chevron " + str.slice(0, 20) });
+  text(slide, str, { x: x + (o.first ? 0.08 : h * 0.45), y, w: w - h * 0.9, h, fontSize: o.fontSize || 7.5, bold: true, color: P.paper, align: "center", valign: "middle" });
+}
+
+// Native chart with the deck's look
+function chart(slide, pres, type, x, y, w, h, series, o = {}) {
+  const opts = {
+    x, y, w, h,
+    chartColors: o.colors || [P.accent],
+    catAxisLabelFontFace: FONT, valAxisLabelFontFace: FONT, dataLabelFontFace: FONT, legendFontFace: FONT, titleFontFace: FONT,
+    catAxisLabelFontSize: o.catFont || 6.5, valAxisLabelFontSize: 6, catAxisLabelColor: P.slate, valAxisLabelColor: P.mid,
+    valGridLine: o.grid === false ? { style: "none" } : { color: "E2E8F0", size: 0.5 },
+    catGridLine: { style: "none" },
+    showValue: o.showValue !== false, dataLabelFontSize: o.labelFont || 6.5, dataLabelColor: o.labelColor || P.ink,
+    dataLabelFormatCode: o.fmt || "#,##0",
+    showLegend: !!o.legend, legendPos: o.legendPos || "t", legendFontSize: 6.5, legendColor: P.slate,
+    valAxisHidden: !!o.hideVal, catAxisLineShow: true, catAxisLineColor: P.line, valAxisLineShow: false,
+    showTitle: false,
+  };
+  if (type === "bar") { opts.barDir = o.dir || "col"; opts.barGapWidthPct = o.gap ?? 60; opts.dataLabelPosition = o.labelPos || "outEnd"; if (o.grouping) opts.barGrouping = o.grouping; }
+  if (type === "line") { opts.lineSize = 1.75; opts.lineDataSymbol = "circle"; opts.lineDataSymbolSize = 4; opts.dataLabelPosition = o.labelPos || "t"; }
+  if (o.min !== undefined) opts.valAxisMinVal = o.min;
+  if (o.max !== undefined) opts.valAxisMaxVal = o.max;
+  if (o.major !== undefined) opts.valAxisMajorUnit = o.major;
+  if (o.invert) opts.invertedColors = o.invert;
+  if (o.extra) Object.assign(opts, o.extra);
+  slide.addChart(type === "bar" ? pres.charts.BAR : pres.charts.LINE, series, opts);
+}
+
+// Appendix chrome: pill, "Appendix n" label, title, wordmark, page number (no breadcrumb)
+async function appChrome(slide, pres, { n, title, page, source, label }) {
+  await pill(slide);
+  wordmark(slide, pres);
+  slide.addText(label || ("Appendix " + n), { x: M, y: 0.12, w: 6, h: 0.2, fontFace: FONT, fontSize: 9, bold: true, italic: true, color: P.ink, margin: 0, isTextBox: true });
+  text(slide, title, { x: M, y: 0.33, w: W - M - 2.15, h: 0.46, fontSize: 11, color: P.ink });
+  if (source) text(slide, "Source: " + source, { x: M, y: 5.3, w: 8.8, h: 0.22, fontSize: 6, italic: true, color: P.slate, valign: "bottom" });
+  slide.addShape(pres.shapes.LINE, { x: 9.38, y: 5.33, w: 0, h: 0.24, line: { color: P.ink, width: 1 }, objectName: "page bar" });
+  slide.addText(String(page), { x: 9.42, y: 5.33, w: 0.32, h: 0.24, fontFace: FONT, fontSize: 9, bold: true, color: P.ink, valign: "middle", margin: 0, isTextBox: true });
+}
+
+// Small heading over a block
+function sub(slide, str, x, y, w, o = {}) {
+  text(slide, str, { x, y, w, h: o.h || 0.2, fontSize: o.fontSize || 8, bold: true, color: o.color || P.dark, valign: "bottom" });
+}
+
+module.exports.table = table;
+module.exports.banner = banner;
+module.exports.chevron = chevron;
+module.exports.chart = chart;
+module.exports.appChrome = appChrome;
+module.exports.sub = sub;

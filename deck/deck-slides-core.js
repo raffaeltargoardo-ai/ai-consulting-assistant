@@ -128,11 +128,11 @@ async function p1(pres) {
   // Impact per pillar (dashed boxes)
   y = PY + 2.57;
   const hI = 0.36;
-  railLabel(y, 1.62, "Impact\n~(est.)~");
+  railLabel(y, 1.62, "Impact\n(est.)");
   const imp = [
-    "**213k** paying homes by 2031 ~est.~",
-    "**Rp534bn** over the life of the homes; **Rp415bn** revenue a year by 2031 ~est.~",
-    "**204k** homes kept by 2031; **Rp174bn** over the life of the homes ~est.~",
+    "**213k** paying homes by 2031 est.",
+    "**Rp534bn** over the life of the homes; **Rp415bn** revenue a year by 2031 est.",
+    "**204k** homes kept by 2031; **Rp174bn** over the life of the homes est.",
   ];
   imp.forEach((t, i) => {
     card(s, pres, colX(i), y, CW, hI, { line: PILLAR[["H", "O", "M"][i]].solid, dash: true, lineWidth: 1, radius: 0.04, shadow: false, name: "impact " + i });
@@ -163,7 +163,7 @@ async function p1(pres) {
     const x = IX + i * (nW + nGap);
     card(s, pres, x, y, nW, nH, { line: i === 0 ? P.accent : P.ink, dash: true, lineWidth: 1, radius: 0.03, shadow: false, fill: i === 0 ? "FDECEF" : P.paper, name: "num " + l });
     text(s, "**" + v + "**", { x: x + 0.03, y: y + 0.07, w: nW - 0.06, h: 0.3, fontSize: 12, color: i === 4 ? P.slate : (i === 0 ? P.accent : P.ink), align: "center", valign: "middle" });
-    text(s, l + " ~est.~", { x: x + 0.04, y: y + 0.38, w: nW - 0.08, h: 0.32, fontSize: 6.3, color: P.slate, align: "center", valign: "top" });
+    text(s, l + " est.", { x: x + 0.04, y: y + 0.38, w: nW - 0.08, h: 0.32, fontSize: 6.3, color: P.slate, align: "center", valign: "top" });
   });
 }
 
