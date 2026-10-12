@@ -14,7 +14,7 @@ const out = args.includes("--out") ? args[args.indexOf("--out") + 1] : "Telkomse
   pres.title = "H.O.M.E.: Telkomsel household connectivity portfolio";
   pres.author = "Team [name]";
   const pages = Object.keys(core).map(Number).sort((a, b) => a - b);
-  for (const n of pages) if (!only || only.includes(n)) core[n](pres);
+  for (const n of pages) if (!only || only.includes(n)) await core[n](pres);
   await pres.writeFile({ fileName: out });
   console.log("written", out);
 })();
